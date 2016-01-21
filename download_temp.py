@@ -9,6 +9,15 @@ def mkDownloadRequest(serv, objName):
 servName = 'intranet.mahidol'
 # objName = '/courses/ds/hw/a1.pdf'
 port = 80
+
+# create an empty socket
+sock = sk.socket(sk.AF_INET, sk.SOCK_STREAM)
+# connect to a destination as specified by the pair
+sock.connect((servName, port))
+
+request = mkDownloadRequest(servName, '/')
+sock.send(request)
+
 # # create an empty socket
 # sock = sk.socket(sk.AF_INET, sk.SOCK_STREAM)
 # # connect to a destination as specified by the pair
@@ -40,32 +49,46 @@ port = 80
 #
 # collector.close()
 
-def Find_Length():
-    # create an empty socket
-    sock = sk.socket(sk.AF_INET, sk.SOCK_STREAM)
-    # connect to a destination as specified by the pair
-    sock.connect((servName, port))
+def store_header(sock):
 
-    request = mkDownloadRequest(servName, '/')
-    sock.send(request)
-    ContentLength = 0
     # if not os.path.exists('./length.txt'):
     #     collector = open('length.txt', 'w+')
     #     collector.close()
-    collector = open('length.txt', 'a+')
-    print os.path.getsize('./length.txt')
+    header = ''
+    remainder = ''
     while True:
         data = sock.recv(1024)
-        print data
-        # collector = open('length.txt', 'a+')
-        collector.write(data)
-        # print data
-        for line in collector:
-            # print line
-            ContentLength = line.find("Content-Length:")
-            if ContentLength != -1:
-                sock.close
-                collector.close()
-                return ContentLength
-        # collector.close()
-print Find_Length()
+        header = header + data
+
+        if '\r\n\r\n' in header:
+            index = header.find('\r\n\r\n')
+            header = header[:index+3]
+            remainder = header[index:]
+            return header,remainder
+
+def Find_Length(sock):
+    header = store_header(sock)[0]
+    start = header.find("Content-Length")
+    end = header.find("\r\n\r\n")
+
+    length = header[start:end]
+    # print header
+
+    start = length.find(":") +2
+    end = length.find("\r\n")
+    length = length[start:end]
+    return length
+
+# print Find_Length(sock)
+
+def body(sock):
+    header = store_header(sock)[1]
+    length = Find_Length(sock)
+    print header
+    print length
+
+print body(sock)
+
+
+
+
