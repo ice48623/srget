@@ -8,20 +8,42 @@ import sys
 
 
 # #print "{!r}".format(mkDownloadRequest('intranet.mahidol','/'))
-# def takeInput(path):
-#     serv = str(sys.argv[1])
+# def takeInput():
+#     serv = str(sys.argv[2])
 #     print serv
 
 
 def srget():
+    path = sys.argv[3]
+    if 'https://' in path:
+        sys.exit[2]
+    if 'http://' not in path:
+        path = 'http://' + path
+    url = urlparse(path)
+    servName = str(url[1])
+    objName = str(url[2])
+    port = url.port
+    if port == None:
+        port = 80
+    
+    input_name = sys.argv[2]
+
+   
+    # # # print 'url', url
+    # print 'input_name', input_name
+    # print 'servName', servName
+    # print 'objName', objName
+    # print 'port', port
+
+
+
     def mkDownloadRequest(serv, objName):
         return ("GET {o} HTTP/1.1\r\n"+"Host: {s}"+"\r\n\r\n").format(o=objName, s=servName)
-    servName = 'cs.muic.mahidol.ac.th'
-    objName = '/courses/ds/hw/a1.pdf'
-    port = 80
 
-
-
+    # servName = 'cs.muic.mahidol.ac.th'
+    # objName = '/courses/ds/hw/a1.pdf'
+    # port = 80
+    # input_name = 'a1.pdf'
     # create an empty socket
     sock = sk.socket(sk.AF_INET, sk.SOCK_STREAM)
     # connect to a destination as specified by the pair
@@ -29,8 +51,6 @@ def srget():
 
     request = mkDownloadRequest(servName, objName)
     sock.send(request)
-
-    
 
     def store_header(sock):
         header = ''
@@ -50,6 +70,8 @@ def srget():
         # header = store_header(sock)[0]
         start = header.find("Content-Length")
         end = header.find("\r\n\r\n")
+        if start == -1:
+            return 0
 
         length = header[start:end]
         # print header
@@ -74,25 +96,30 @@ def srget():
         #         break
 
         #     body_data += sock.recv(1024)
-
+        print 'enter body'
         header, remainder = store_header(sock)
         length = Find_Length(header)
 
+        # body = open(input_name, 'a+')
+
         body_data = remainder
+        # body.write(remainder)
         while True:
             if len(body_data) == length:
-                print 'enter if'
-                body = open('download.pdf', 'a+')
+                body = open(input_name, 'a+')
                 body.write(body_data)
                 # print os.path.getsize('download.txt')
                 # return body_data
+
+                body.close
+
                 break
 
             body_data += sock.recv(1024)
-            # print body_data
-            # body = open('download.pdf', 'a+')
+            
             # body.write(body_data)
-        
+            # print os.path.getsize(body)
+            # print body_data
     body(sock)
 srget()
 
