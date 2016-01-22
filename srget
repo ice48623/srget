@@ -96,30 +96,53 @@ def srget():
         #         break
 
         #     body_data += sock.recv(1024)
-        print 'enter body'
-        header, remainder = store_header(sock)
-        length = Find_Length(header)
+
+
+
+
+
+        # header, remainder = store_header(sock)
+        # length = Find_Length(header)
 
         # body = open(input_name, 'a+')
 
-        body_data = remainder
+        # body_data = remainder
         # body.write(remainder)
+        # while True:
+        #     if len(body_data) == length:
+        #         # body = open(input_name, 'a+')
+        #         # body.write(body_data)
+        #         # print os.path.getsize('download.txt')
+        #         # return body_data
+
+        #         body.close
+
+        #         break
+
+        #     body_data += sock.recv(1024)
+
+            
+        #     body.write(body_data)
+
+
+
+        header, remainder = store_header(sock)
+        length = Find_Length(header)
+        body = open(input_name, 'a+')
+
+        body_data = remainder
+        body.write(remainder)
+        body.flush()
         while True:
-            if len(body_data) == length:
-                body = open(input_name, 'a+')
-                body.write(body_data)
-                # print os.path.getsize('download.txt')
-                # return body_data
-
-                body.close
-
+            
+            file_size = os.path.getsize(input_name)
+            if file_size == length:
+                body.close()
                 break
 
-            body_data += sock.recv(1024)
-            
-            # body.write(body_data)
-            # print os.path.getsize(body)
-            # print body_data
+            body_data = sock.recv(1024)
+            body.write(body_data)
+            body.flush()
     body(sock)
 srget()
 
