@@ -55,37 +55,47 @@ def store_header(sock):
     #     collector = open('length.txt', 'w+')
     #     collector.close()
     header = ''
-    remainder = ''
+    data = ''
+    # remainder = ''
     while True:
-        data = sock.recv(1024)
-        header = header + data
+        data_part = sock.recv(1024)
+        data = data + data_part
 
-        if '\r\n\r\n' in header:
-            index = header.find('\r\n\r\n')
-            header = header[:index+3]
-            remainder = header[index:]
+        if '\r\n\r\n' in data:
+            index = data.find('\r\n\r\n')
+            header = data[:index+3]
+            remainder = data[index+4:]
             return header,remainder
 
-def Find_Length(sock):
-    header = store_header(sock)[0]
+# print store_header(sock)
+def Find_Length(header):
+    # header = store_header(sock)[0]
     start = header.find("Content-Length")
     end = header.find("\r\n\r\n")
 
     length = header[start:end]
     # print header
 
-    start = length.find(":") +2
-    end = length.find("\r\n")
-    length = length[start:end]
-    return length
+    start2 = length.find(":") +2
+    end2 = length.find("\r\n")
+    length_final = length[start2:end2]
+    return int(length_final)
 
 # print Find_Length(sock)
 
 def body(sock):
-    header = store_header(sock)[1]
-    length = Find_Length(sock)
-    print header
-    print length
+    # header = store_header(sock)[0]
+    # remainder = store_header(sock)[1]
+    header, remainder = store_header(sock)
+    length = Find_Length(header)
+    
+    body_data = remainder
+    while True:
+        if len(body_data) == length:
+            return body_data
+
+        body_data += sock.recv(1024)
+    
 
 print body(sock)
 
