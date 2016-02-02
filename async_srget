@@ -1,0 +1,198 @@
+#!/usr/bin/python
+
+import asyncore, socket
+import logging
+from cStringIO import StringIO
+import socket as sk
+from urlparse import urlparse
+import os
+import sys
+
+
+def make_request(req_type, what, details, version="1.1"):
+    """ Compose an HTTP request """
+    NL = "\r\n"
+    request_line = "{req_type} {what} HTTP/{ver}".format(
+        req_type=req_type,
+        what=what,
+        ver=version
+    )
+ 
+    detail_lines = NL.join(
+        "{}: {}".format(name, value) for name, value in details.iteritems()
+    )
+ 
+    full_request = request_line + NL + detail_lines + NL + NL
+    return full_request
+
+
+class HTTPClient(asyncore.dispatcher): ## inherit - extend in python style
+
+    def __init__(self, host, path):
+        asyncore.dispatcher.__init__(self)  ## super -- call structure of super class , self is itself object
+        self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.connect((host, 80))
+
+        self.host = host
+
+        self.recvbuf = StringIO()  ## it's like string builder
+        self.logger = logging.getLogger(host+path)
+
+        self.sendbuf = ""
+        ## make my request
+        self.write(
+            make_request('GET', path,
+                {"host": host, "Connection": "close"}) ## Non-persistent connection
+            )
+
+    def write(self, msg):
+        self.sendbuf += msg
+
+
+    def handle_connect(self):
+        self.logger.debug("connection established")
+
+
+    def handle_close(self):
+        self.logger.debug("got disconnected")
+        self.close()
+
+
+    def handle_read(self): ## when recv = there is something for you to read --> do what
+        buf = self.recv(8192) ## 2K - 10K -- recoomend 8K
+        self.recvbuf.write(buf)
+        self.logger.debug("recv {0} bytes".format(len(buf)))
+
+
+    def writeable(self): # if there is anything to send??
+        return len(self.sendbuf) > 0 ## you have sth to send
+
+
+    def handle_write(self):
+        bytes_send = self.send(self.sendbuf)
+        self.sendbuf = self.sendbuf[bytes_send:] ## the remainder
+
+# clients = [
+#     HTTPClient("www.nytime.com", "/"),
+#     HTTPClient("www.chula.ac.th", "/"),
+#     HTTPClient("www.cnn.com", "/"),
+#     HTTPClient("www.wsj.com", "/")
+# ]
+
+def store_header(sock):
+    header = ''
+    data = ''
+    while True:
+        data_part = sock.recv(1024)
+        data = data + data_part
+        if '\r\n\r\n' in data:
+            index = data.find('\r\n\r\n')
+            header = data[:index+3]
+            remainder = data[index+4:]
+            header_file = open(header_name, 'a+')
+            header_file.write(header)
+            header_file.flush()
+            header_file.close()
+            return header,remainder
+
+def Find_Length(header):
+    if "Content-Length" in header:
+        start = header.find("Content-Length")
+        end = header.find("\r\n\r\n")
+        if start == -1:
+            return 0
+        length = header[start:end]
+        start2 = length.find(":") +2
+        end2 = length.find("\r\n")
+        length_final = length[start2:end2]
+        return int(length_final)
+
+    return None
+
+def Find_oldfile_Length(input_name):
+    file_name = input_name + "_temp"
+    header_temp = open(file_name)
+    header = ''
+    for line in header_temp:
+        header = header + line
+
+    length = Find_Length(header)
+    return int(length)
+
+def get_header(servName, port, objName):
+    sock = sk.socket(sk.AF_INET, sk.SOCK_STREAM)
+    sock.connect((servName, port))
+    header_request = headerDownloadRequest(servName, objName)
+    sock.send(header_request)
+    header = sock.recv(1024)
+    return header
+# get_header(servName,port,objName)
+
+def find_ETag(header):
+    if "ETag" in header:
+        start = header.find("ETag")
+
+        header = header[start:]
+        # print header
+        start = header.find('"')
+        end = header.find("\r\n")
+        ETag = header[start:end]
+        return ETag
+    else:
+        return None;
+# find_ETag(get_header(servName, port, objName))
+
+def find_last_modified(header):
+    s = StringIO.StringIO(header)
+    for line in s:
+        if "Last-Modified" in line:
+            start = line.find(":") + 2
+            end = line.find("\r\n")
+            LModified = line[start:end]
+            return LModified
+    return None
+# find_last_modified(get_header(servName, port, objName))
+
+def open_header_file(file):
+    Content = ''
+    file = open(file)
+    for line in file:
+        Content += line
+    return Content
+
+def srget():
+    # print sys.argv
+    path = sys.argv[5]
+    # print path
+
+    if "https://" in path:
+        sys.exit(2)
+    if 'http://' not in path:
+        path = 'http://' + path
+    url = urlparse(path)
+    servName = str(url[1])
+    objName = str(url[2])
+    port = url.port
+    if port == None:
+        port = 80
+    if objName == "":
+        objName = "/"
+
+    connection_num = sys.argv[4]
+    input_name = sys.argv[2]
+    print "servName", servName
+    print "objName", objName
+    # print "port", port
+
+    HTTPClient("www.nytime.com", "/")
+    HTTPClient(servName, objName)
+
+
+
+
+    while True:
+
+        logging.basicConfig(level=logging.DEBUG, format="%(asctime)-15s %(name)s: %(message)s")
+
+        asyncore.loop()
+srget()
