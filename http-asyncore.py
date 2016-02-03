@@ -70,12 +70,12 @@ class HTTPClient(asyncore.dispatcher): ## inherit - extend in python style
 		self.sendbuf = self.sendbuf[bytes_send:] ## the remainder
 
 
-# clients = [ ## simultineously download
-# 	HTTPClient("www.nytimes.com", "/") ,
-# 	HTTPClient("www.chula.ac.th", "/") ,
+clients = [ ## simultineously download
+	HTTPClient("www.nytimes.com", "/") ,
+	HTTPClient("www.chula.ac.th", "/") ,
 # 	HTTPClient("www.cnn.com", "/") ,
 # 	HTTPClient("www.wsj.com", "/")
-# ]
+]
 # HTTPClient("www.nytimes.com", "/")
 
 logging.basicConfig(level=logging.DEBUG,

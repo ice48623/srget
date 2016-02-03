@@ -24,10 +24,10 @@ def srget():
 	header_name = input_name + '_temp'
 	start_over = False
 	start_resume = False
-	def headerDownloadRequest(serv, objName):
+	def headerDownloadRequest(servName, objName):
 		return ("HEAD {o} HTTP/1.1\r\n"+"Host: {s}\r\n"+"\r\n\r\n").format(o=objName, s=servName)
 
-	def mkDownloadRequest(serv, objName, size, end_size):
+	def mkDownloadRequest(servName, objName, size, end_size):
 		return ("GET {o} HTTP/1.1\r\n"+"Host: {s}\r\n"+"Range: bytes={h} - {i}"+"\r\n\r\n").format(o=objName, s=servName, h=str(size), i=str(end_size))
 
 	def store_header(sock):
@@ -76,6 +76,7 @@ def srget():
 		header_request = headerDownloadRequest(servName, objName)
 		sock.send(header_request)
 		header = sock.recv(1024)
+		sock.close()
 		return header
 	# get_header(servName,port,objName)
 
@@ -112,7 +113,7 @@ def srget():
 		return Content
 	# open_header_file("a1.pdf_temp")
 
-	if os.path.exists(input_name):
+	if os.path.exists(input_name) and os.path.exists(header_name):
 		check_ETag = find_ETag(get_header(servName, port, objName)) # get ETag from requested header
 		exists_file_ETag = find_ETag(open_header_file(header_name)) # get ETag from header temp file
 
