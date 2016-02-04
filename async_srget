@@ -28,16 +28,17 @@ import sys
 #     full_request = request_line + NL + detail_lines + NL + NL
 #     return full_request
 
+#### read user input and split it into server name, object name, port
 path = sys.argv[5]
-if "https://" in path:
+if "https://" in path: ## if user input https protocal, it will exit the program
     sys.exit(2)
-if 'http://' not in path:
+if 'http://' not in path: ## if user input a path that doesn't contain http in the input, add http to the path
     path = 'http://' + path
 url = urlparse(path)
 servName = str(url[1])
 objName = str(url[2])
 port = url.port
-if port == None:
+if port == None: ## if user doesn't input specific port, use port 80
     port = 80
 
 input_name, extension = sys.argv[2].split(".")
@@ -45,39 +46,17 @@ connection_num = int(sys.argv[4])
 
 header_name = input_name + '_temp.txt'
 
-start_over = False
-start_resume = False
+start_over = False ## this will be use to determine whether it should start download over or not
+start_resume = False ## this will be use to determine whether it should resume the download or not
 
-# header_kepper = ''
-# print "servName", servName
-# print "objName", objName
-# print "port", port
-# print "input_name", input_name
-# print "header_name", header_name
-
-def headerDownloadRequest(servName, objName):
+def headerDownloadRequest(servName, objName): ## this is a helper function for HTTP request for the header only
     return ("HEAD {o} HTTP/1.1\r\n"+"Host: {s}\r\n"+"\r\n\r\n").format(o=objName, s=servName)
 
-def mkDownloadRequest(servName, objName, size, end_size):
+def mkDownloadRequest(servName, objName, size, end_size): ## a helper function for HTTP request for whole body
     return ("GET {o} HTTP/1.1\r\n"+"Host: {s}\r\n"+"Range: bytes={h} - {i}"+"\r\n\r\n").format(o=objName, s=servName, h=str(size), i=str(end_size))
 
-# def store_header(sock):
-#     header = ''
-#     data = ''
-#     while True:
-#         data_part = sock.recv(1024)
-#         data = data + data_part
-#         if '\r\n\r\n' in data:
-#             index = data.find('\r\n\r\n')
-#             header = data[:index+3]
-#             remainder = data[index+4:]
-#             header_file = open(header_name, 'a+')
-#             header_file.write(header)
-#             header_file.flush()
-#             header_file.close()
-#             return header,remainder
 
-def store_header(data_part): ###### Still doesn't work if header comes after the first request. #######
+def store_header(data_part): ## take data that was receive from the server and find the header, if found write to header into a header file and return header and its remainder
     # print data_part
     # header_kepper += data_part
     # print "Enter store_header"
@@ -91,8 +70,8 @@ def store_header(data_part): ###### Still doesn't work if header comes after the
         header_file.close()
         print "write header complete"
         return header,remainder
-
-def Find_Length(header):
+ 
+def Find_Length(header): ## a helper function that used to find content length from input header
     if "Content-Length" in header:
         start = header.find("Content-Length")
         end = header.find("\r\n\r\n")
@@ -106,7 +85,7 @@ def Find_Length(header):
 
     return None
 
-def Find_oldfile_Length(input_name):
+def Find_oldfile_Length(input_name): ## find content length from a header file
     file_name = input_name + "_temp.txt"
     header_temp = open(file_name)
     header = ''
@@ -116,7 +95,7 @@ def Find_oldfile_Length(input_name):
     length = Find_Length(header)
     return int(length)
 
-def get_header(servName, port, objName):
+def get_header(servName, port, objName): ## open a socket and connection to the request server and get the header, call headerDownloadRequest fucntion
     sock = sk.socket(sk.AF_INET, sk.SOCK_STREAM)
     sock.connect((servName, port))
     header_request = headerDownloadRequest(servName, objName)
@@ -125,7 +104,7 @@ def get_header(servName, port, objName):
     return header
 # get_header(servName,port,objName)
 
-def find_ETag(header):
+def find_ETag(header): ## find ETag from input header
     if "ETag" in header:
         start = header.find("ETag")
 
@@ -139,7 +118,7 @@ def find_ETag(header):
         return None;
 # find_ETag(get_header(servName, port, objName))
 
-def find_last_modified(header):
+def find_last_modified(header): ## find last modified data from input header
     s = StringIO(header)
     for line in s:
         if "Last-Modified" in line:
@@ -150,14 +129,14 @@ def find_last_modified(header):
     return None
 # find_last_modified(get_header(servName, port, objName))
 
-def open_header_file(file):
+def open_header_file(file): ## open the header file and return its content
     Content = ''
     file = open(file)
     for line in file:
         Content += line
     return Content
 
-def make_request(req_type, what, details, size, end_size, version="1.1"):
+def make_request(req_type, what, details, size, end_size, version="1.1"): ## this function is used to generate a main HTTP request line
     """ Compose an HTTP request """
     # print "size", size
     # print "end_size", end_size
@@ -180,7 +159,7 @@ def make_request(req_type, what, details, size, end_size, version="1.1"):
     # print full_request
     return full_request
 
-class HTTPClient(asyncore.dispatcher): ## inherit - extend in python style
+class HTTPClient(asyncore.dispatcher): ## main async class
     
     
     def __init__(self, host, path, port, size, end_size, temp_file_name):
@@ -197,32 +176,16 @@ class HTTPClient(asyncore.dispatcher): ## inherit - extend in python style
         else:
             self.dn_progress = 0    
         self.keep_header = True
-        self.recvbuf = StringIO()  ## it's like string builder
+        self.recvbuf = StringIO()
         self.logger = logging.getLogger(host+path)
-        # self.length = Find_Length(header)
+
         self.sendbuf = ""
         self.temp_file_name = temp_file_name
-        # make my request
-        # self.write(
-        #     make_request('GET', path,
-        #         {"host_info": {"host": host, "Range": {"size": size, "end_size", end_size}} , "Connection": "close"})
-        #     )
 
         self.write(
             make_request('GET', path,
                 {"host": host, "Connection": "close"},size, end_size) ## Non-persistent connection
             )
-
-        # details = {"host": host, "Connection": "close"}
-        # NL = "\r\n"
-        # detail_lines = NL.join(
-        # "{}: {}".format(name, value) for name, value in details.iteritems()
-        # )   
-        # request_range = " Range: bytes={h} - {i}".format(h=size, i=end_size)
-    
-        # self.write = ("GET {o} HTTP/1.1\r\n"+"Host: {s}\r\n"+"Range: bytes={h} - {i}"+"\r\n\r\n").format(o=host, s=path, h=str(size), i=str(end_size))
-        # print self.buffer
-        # self.write(mkDownloadRequest(host, path, size, end_size))
         
     def write(self, msg):
         self.sendbuf += msg
@@ -242,13 +205,8 @@ class HTTPClient(asyncore.dispatcher): ## inherit - extend in python style
                 os.remove(header_name)
         self.close()
 
-    def handle_read(self): ## when recv = there is something for you to read --> do what
-        # buf = self.recv(8192) ## 2K - 10K -- recoomend 8K
-        # self.recvbuf.write(buf)
-        # self.logger.debug("recv {0} bytes".format(len(buf)))
-        # print self.keep_header
-        
-        # file_size = os.path.getsize(input_name)
+    def handle_read(self): 
+        ## receive data, open/create temp file, store header if didn't, else write data into temp file.
         body_data = self.recv(1024)
 
         # print body_data
@@ -261,12 +219,6 @@ class HTTPClient(asyncore.dispatcher): ## inherit - extend in python style
             if header != '':
                 self.keep_header = False
         else:
-            # print len(body_data)
-            # if self.dn_progress == int(length):
-            #     body.close()
-            #     self.handle_close()
-            #     # download_length = str(download_length)
-            #     os.remove(header_name)
                 
             write_temp.write(body_data)
             write_temp.flush()
@@ -276,23 +228,18 @@ class HTTPClient(asyncore.dispatcher): ## inherit - extend in python style
         
 
 
-    def writeable(self): # if there is anything to send??
-        return len(self.sendbuf) > 0 ## you have sth to send
+    def writeable(self):
+        return len(self.sendbuf) > 0 
 
 
     def handle_write(self):
         bytes_send = self.send(self.sendbuf)
-        self.sendbuf = self.sendbuf[bytes_send:] ## the remainder
+        self.sendbuf = self.sendbuf[bytes_send:]
 
-    
-# clients = [
-#     HTTPClient("www.nytime.com", "/"),
-#     HTTPClient("www.chula.ac.th", "/"),
-#     HTTPClient("www.cnn.com", "/"),
-#     HTTPClient("www.wsj.com", "/")
-# ]
+############ Below code is in global ############
+
 check_length = Find_Length(get_header(servName, port, objName)) #get Content Length from requested header
-if os.path.exists(input_name):
+if os.path.exists(input_name): ## check whether the input "out put file" is exists or not
     if os.path.exists(header_name):
         print "Previous Download is not complete"
         check_ETag = find_ETag(get_header(servName, port, objName)) # get ETag from requested header
@@ -316,8 +263,8 @@ if os.path.exists(input_name):
                         start_resume = True
                     else:
                         start_over = True
-                elif check_LModified != None and exists_file_LModified != None:
-                    if check_LModified == exists_file_LModified:
+                elif check_LModified != None and exists_file_LModified != None: ## If last modified field is not empty
+                    if check_LModified == exists_file_LModified: ## compare last modified from header file and from header of request server
                         start_resume = True
                     else:
                         start_over = True
@@ -328,8 +275,6 @@ if os.path.exists(input_name):
         print "Your file is completed"
 else:
     start_over = True
-print "start_over", start_over
-print "start_resume", start_resume
 
 # if start_over == True:
 #     HTTPClient(servName, objName, port, 0, "")
@@ -340,7 +285,7 @@ print "start_resume", start_resume
     
 #     HTTPClient(servName, objName, port, size, end_size)
 
-if start_over == True:
+if start_over == True: ## enter this if the program should start download file over
     clients = []
     for i in range(connection_num):
         temp_file_name = input_name + "_" + str(i) + ".txt"
@@ -353,59 +298,34 @@ if start_over == True:
         clients += [client]
     asyncore.loop()
 
+    final_file = open(input_name+ "." + extension, "a+")
+    content =""
+    for i in range(connection_num):
+        temp_file_name = input_name + "_" + str(i) + ".txt"
+        with open(temp_file_name, "r") as read_temp:
+            data = read_temp.read()
+            final_file.write(data)
+            final_file.flush()
+        os.remove(temp_file_name)
+    os.remove(header_name)
+    final_file.close()
 
 
-final_file = open(input_name+ "." + extension, "a+")
-content =""
-for i in range(connection_num):
-    temp_file_name = input_name + "_" + str(i) + ".txt"
-    with open(temp_file_name, "r") as read_temp:
-        data = read_temp.read()
-        final_file.write(data)
-        final_file.flush()
-    os.remove(temp_file_name)
-final_file.close()
-
-
-
-# if start_resume = True:
-
-#     if start_over == True:
-
-#         size = 0
-#         end_size = ""
-#         HTTPClient(servName, objName, port)
-        
-#         download_length = 0
-#         header, remainder = store_header(sock)
-#         length = Find_Length(header)
-#         body = open(input_name, 'a+')
-#         body_data = remainder
-#         body.write(remainder)
-#         body.flush()
-#         while True:
-
-#             file_size = os.path.getsize(input_name)
-#             # download_length += len(body_data)
-#             if int(file_size) == int(length):
-#                 body.close()
-#                 sock.close
-#                 # download_length = str(download_length)
-#                 os.remove(header_name)
-#                 break
-
-#             body_data = sock.recv(1024)
-#             body.write(body_data)
-#             body.flush()
+if start_resume == True: ## enter this if the program should resume from the previous download
+    
+    clients = []
+    for i in range(connection_num):
+        temp_file_name = input_name + "_" + str(i) + ".txt"
 
 
 
-#     HTTPClient("www.nytime.com", "/", 80)
-#     HTTPClient(servName, objName, port)
-
-# HTTPClient("localhost", "/", 5555, 0, "")
-
-# logging.basicConfig(level=logging.DEBUG, format="%(asctime)-15s %(name)s: %(message)s")
-
-# asyncore.loop()
-# srget()
+# final_file = open(input_name+ "." + extension, "a+")
+# content =""
+# for i in range(connection_num):
+#     temp_file_name = input_name + "_" + str(i) + ".txt"
+#     with open(temp_file_name, "r") as read_temp:
+#         data = read_temp.read()
+#         final_file.write(data)
+#         final_file.flush()
+#     os.remove(temp_file_name)
+# final_file.close()
