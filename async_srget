@@ -40,8 +40,8 @@ port = url.port
 if port == None:
     port = 80
 
-input_name = sys.argv[2]
-connection_num = sys.argv[4]
+input_name, extension = sys.argv[2].split(".")
+connection_num = int(sys.argv[4])
 
 header_name = input_name + '_temp.txt'
 
@@ -177,13 +177,13 @@ def make_request(req_type, what, details, size, end_size, version="1.1"):
     # print "end_size", end_size
     request_range = "Range: bytes={h} - {i}".format(h=size, i=end_size)
     full_request = request_line + NL + detail_lines +NL + request_range + NL + NL
-    print full_request
+    # print full_request
     return full_request
 
 class HTTPClient(asyncore.dispatcher): ## inherit - extend in python style
     
     
-    def __init__(self, host, path, port, size, end_size):
+    def __init__(self, host, path, port, size, end_size, temp_file_name):
         asyncore.dispatcher.__init__(self)  ## super -- call structure of super class , self is itself object
         self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
         self.connect((host, port))
@@ -201,6 +201,7 @@ class HTTPClient(asyncore.dispatcher): ## inherit - extend in python style
         self.logger = logging.getLogger(host+path)
         # self.length = Find_Length(header)
         self.sendbuf = ""
+        self.temp_file_name = temp_file_name
         # make my request
         # self.write(
         #     make_request('GET', path,
@@ -228,6 +229,7 @@ class HTTPClient(asyncore.dispatcher): ## inherit - extend in python style
         # print self.sendbuf
 
 
+
     def handle_connect(self):
         self.logger.debug("connection established")
 
@@ -250,12 +252,12 @@ class HTTPClient(asyncore.dispatcher): ## inherit - extend in python style
         body_data = self.recv(1024)
 
         # print body_data
-        body = open(input_name, 'a+')
+        write_temp = open(self.temp_file_name, 'a+')
         if self.keep_header == True:
 
             header, remainder = store_header(body_data)
-            body.write(remainder)
-            body.flush()
+            write_temp.write(remainder)
+            write_temp.flush()
             if header != '':
                 self.keep_header = False
         else:
@@ -266,11 +268,11 @@ class HTTPClient(asyncore.dispatcher): ## inherit - extend in python style
             #     # download_length = str(download_length)
             #     os.remove(header_name)
                 
-            body.write(body_data)
-            body.flush()
+            write_temp.write(body_data)
+            write_temp.flush()
             self.dn_progress += len(body_data)
             print self.dn_progress
-           
+        
         
 
 
@@ -289,6 +291,7 @@ class HTTPClient(asyncore.dispatcher): ## inherit - extend in python style
 #     HTTPClient("www.cnn.com", "/"),
 #     HTTPClient("www.wsj.com", "/")
 # ]
+check_length = Find_Length(get_header(servName, port, objName)) #get Content Length from requested header
 if os.path.exists(input_name):
     if os.path.exists(header_name):
         print "Previous Download is not complete"
@@ -297,7 +300,7 @@ if os.path.exists(input_name):
         print "check_ETag", check_ETag
         print "exists_file_ETag", exists_file_ETag
 
-        check_length = Find_Length(get_header(servName, port, objName)) #get Content Length from requested header
+        
         exists_file_length = os.path.getsize(input_name) # get Content Length from header temp file
 
         check_LModified = find_last_modified(get_header(servName, port, objName))
@@ -328,14 +331,41 @@ else:
 print "start_over", start_over
 print "start_resume", start_resume
 
-if start_over == True:
-    HTTPClient(servName, objName, port, 0, "")
+# if start_over == True:
+#     HTTPClient(servName, objName, port, 0, "")
 
-if start_resume == True:
-    size = os.path.getsize(input_name)
-    end_size = Find_oldfile_Length(input_name)
+# if start_resume == True:
+#     size = os.path.getsize(input_name)
+#     end_size = Find_oldfile_Length(input_name)
     
-    HTTPClient(servName, objName, port, size, end_size)
+#     HTTPClient(servName, objName, port, size, end_size)
+
+if start_over == True:
+    clients = []
+    for i in range(connection_num):
+        temp_file_name = input_name + "_" + str(i) + ".txt"
+        size = (check_length / connection_num + 1) * i
+        end_size = (check_length / connection_num) + size
+        print size
+        print end_size
+        client = HTTPClient(servName, objName, port, size, end_size, temp_file_name)
+        # clients.append(HTTPClient(servName, objName, port, size, end_size, temp_file_name))
+        clients += [client]
+    asyncore.loop()
+
+
+
+final_file = open(input_name+ "." + extension, "a+")
+content =""
+for i in range(connection_num):
+    temp_file_name = input_name + "_" + str(i) + ".txt"
+    with open(temp_file_name, "r") as read_temp:
+        data = read_temp.read()
+        final_file.write(data)
+        final_file.flush()
+    os.remove(temp_file_name)
+final_file.close()
+
 
 
 # if start_resume = True:
@@ -375,7 +405,7 @@ if start_resume == True:
 
 # HTTPClient("localhost", "/", 5555, 0, "")
 
-logging.basicConfig(level=logging.DEBUG, format="%(asctime)-15s %(name)s: %(message)s")
+# logging.basicConfig(level=logging.DEBUG, format="%(asctime)-15s %(name)s: %(message)s")
 
-asyncore.loop()
+# asyncore.loop()
 # srget()
