@@ -159,8 +159,8 @@ def open_header_file(file):
 
 def make_request(req_type, what, details, size, end_size, version="1.1"):
     """ Compose an HTTP request """
-    print "size", size
-    print "end_size", end_size
+    # print "size", size
+    # print "end_size", end_size
     NL = "\r\n"
     request_line = "{req_type} {what} HTTP/{ver}".format(
         req_type=req_type,
@@ -170,14 +170,13 @@ def make_request(req_type, what, details, size, end_size, version="1.1"):
  
     detail_lines = NL.join(
         "{}: {}".format(name, value) for name, value in details.iteritems()
+
     )
 
-    print "size", size
-    print "end_size", end_size
-
-    request_range = " Range: bytes={h} - {i}".format(h=str(size), i=str(end_size))
- 
-    full_request = request_line + NL + detail_lines + request_range + NL + NL
+    # print "size", size
+    # print "end_size", end_size
+    request_range = "Range: bytes={h} - {i}".format(h=size, i=end_size)
+    full_request = request_line + NL + detail_lines +NL + request_range + NL + NL
     print full_request
     return full_request
 
@@ -188,18 +187,29 @@ class HTTPClient(asyncore.dispatcher): ## inherit - extend in python style
         asyncore.dispatcher.__init__(self)  ## super -- call structure of super class , self is itself object
         self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
         self.connect((host, port))
-
+        NL = "\r\n"
+        print size
+        print end_size
         self.host = host
-        self.dn_progress = 0
+        if os.path.exists(header_name):
+
+            self.dn_progress = os.path.getsize(header_name)
+        else:
+            self.dn_progress = 0    
         self.keep_header = True
         self.recvbuf = StringIO()  ## it's like string builder
         self.logger = logging.getLogger(host+path)
-
+        # self.length = Find_Length(header)
         self.sendbuf = ""
         # make my request
+        # self.write(
+        #     make_request('GET', path,
+        #         {"host_info": {"host": host, "Range": {"size": size, "end_size", end_size}} , "Connection": "close"})
+        #     )
+
         self.write(
             make_request('GET', path,
-                {"host": host, "Connection": "close"}, size, end_size) ## Non-persistent connection
+                {"host": host, "Connection": "close"},size, end_size) ## Non-persistent connection
             )
 
         # details = {"host": host, "Connection": "close"}
@@ -207,9 +217,10 @@ class HTTPClient(asyncore.dispatcher): ## inherit - extend in python style
         # detail_lines = NL.join(
         # "{}: {}".format(name, value) for name, value in details.iteritems()
         # )   
-        # request_range = "Range: bytes={h} - {i}".format(h=size, i=end_size)
+        # request_range = " Range: bytes={h} - {i}".format(h=size, i=end_size)
     
-        # self.buffer = 'GET {o} HTTP/1.1\r\n' + detail_lines + request_range + NL + NL.format(o=path)
+        # self.write = ("GET {o} HTTP/1.1\r\n"+"Host: {s}\r\n"+"Range: bytes={h} - {i}"+"\r\n\r\n").format(o=host, s=path, h=str(size), i=str(end_size))
+        # print self.buffer
         # self.write(mkDownloadRequest(host, path, size, end_size))
         
     def write(self, msg):
@@ -235,6 +246,7 @@ class HTTPClient(asyncore.dispatcher): ## inherit - extend in python style
         # self.logger.debug("recv {0} bytes".format(len(buf)))
         # print self.keep_header
         
+        # file_size = os.path.getsize(input_name)
         body_data = self.recv(1024)
 
         # print body_data
@@ -247,10 +259,13 @@ class HTTPClient(asyncore.dispatcher): ## inherit - extend in python style
             if header != '':
                 self.keep_header = False
         else:
-            print len(body_data)
-            if len(body_data) == 0:
-                print "recieve no data"
-                self.close()
+            # print len(body_data)
+            # if self.dn_progress == int(length):
+            #     body.close()
+            #     self.handle_close()
+            #     # download_length = str(download_length)
+            #     os.remove(header_name)
+                
             body.write(body_data)
             body.flush()
             self.dn_progress += len(body_data)
