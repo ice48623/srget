@@ -8,6 +8,27 @@ from urlparse import urlparse
 import os
 import sys
 
+
+# def make_request(req_type, what, details, version="1.1", start, end):
+#     """ Compose an HTTP request """
+#     NL = "\r\n"
+#     request_line = "{req_type} {what} HTTP/{ver} Range: bytes={start} - {end}".format(
+#         req_type=req_type,
+#         what=what,
+#         ver=version,
+#         start=start,
+#         end=end
+
+#     )
+ 
+#     detail_lines = NL.join(
+#         "{}: {}".format(name, value) for name, value in details.iteritems() 
+#     )
+ 
+#     full_request = request_line + NL + detail_lines + NL + NL
+#     return full_request
+
+
 #### read user input and split it into server name, object name, port
 path = sys.argv[5]
 if "https://" in path: ## if user input https protocal, it will exit the program
@@ -37,7 +58,9 @@ def mkDownloadRequest(servName, objName, size, end_size): ## a helper function f
 
 
 def store_header(data_part): ## take data that was receive from the server and find the header, if found write to header into a header file and return header and its remainder
-
+    # print data_part
+    # header_kepper += data_part
+    # print "Enter store_header"
     if '\r\n\r\n' in data_part:
         index = data_part.find('\r\n\r\n')
         header = data_part[:index+3]
@@ -80,6 +103,7 @@ def get_header(servName, port, objName): ## open a socket and connection to the 
     sock.send(header_request)
     header = sock.recv(1024)
     return header
+# get_header(servName,port,objName)
 
 def find_ETag(header): ## find ETag from input header
     if "ETag" in header:
@@ -93,6 +117,7 @@ def find_ETag(header): ## find ETag from input header
         return ETag
     else:
         return None;
+# find_ETag(get_header(servName, port, objName))
 
 def find_last_modified(header): ## find last modified data from input header
     s = StringIO(header)
@@ -103,6 +128,7 @@ def find_last_modified(header): ## find last modified data from input header
             LModified = line[start:end]
             return LModified
     return None
+# find_last_modified(get_header(servName, port, objName))
 
 def open_header_file(file): ## open the header file and return its content
     Content = ''
@@ -113,6 +139,8 @@ def open_header_file(file): ## open the header file and return its content
 
 def make_request(req_type, what, details, size, end_size, version="1.1"): ## this function is used to generate a main HTTP request line
     """ Compose an HTTP request """
+    # print "size", size
+    # print "end_size", end_size
     NL = "\r\n"
     request_line = "{req_type} {what} HTTP/{ver}".format(
         req_type=req_type,
@@ -125,8 +153,11 @@ def make_request(req_type, what, details, size, end_size, version="1.1"): ## thi
 
     )
 
+    # print "size", size
+    # print "end_size", end_size
     request_range = "Range: bytes={h} - {i}".format(h=size, i=end_size)
     full_request = request_line + NL + detail_lines +NL + request_range + NL + NL
+    # print full_request
     return full_request
 
 class HTTPClient(asyncore.dispatcher): ## main async class
@@ -194,6 +225,9 @@ class HTTPClient(asyncore.dispatcher): ## main async class
             write_temp.flush()
             self.dn_progress += len(body_data)
             print self.dn_progress
+        
+        
+
 
     def writeable(self):
         return len(self.sendbuf) > 0 
@@ -243,6 +277,15 @@ if os.path.exists(input_name): ## check whether the input "out put file" is exis
 else:
     start_over = True
 
+# if start_over == True:
+#     HTTPClient(servName, objName, port, 0, "")
+
+# if start_resume == True:
+#     size = os.path.getsize(input_name)
+#     end_size = Find_oldfile_Length(input_name)
+    
+#     HTTPClient(servName, objName, port, size, end_size)
+
 if start_over == True: ## enter this if the program should start download file over
     clients = []
     for i in range(connection_num):
@@ -274,3 +317,33 @@ if start_resume == True: ## enter this if the program should resume from the pre
     clients = []
     for i in range(connection_num):
         temp_file_name = input_name + "_" + str(i) + ".txt"
+
+
+if start_resume == True: ## enter this if the program should resume from the previous download
+    old_file_size = os.path.getsize(input_name + "." + extension)
+    clients = []
+    for i in range(connection_num):
+        temp_file_name = input_name + "_" + str(i) + ".txt"
+        size = (old_file_size / connection_num + 1) * i
+        end_size = (old_file_size / connection_num) + size
+        if i == (connection_num - 1):
+            temp_size = end_size - size
+        else:
+            temp_size = (end_size - size) + 1
+        client = HTTPClient(servName, objName, port, size, end_size, temp_file_name, temp_size)
+        clients += [client]
+    asyncore.loop()
+
+    final_file = open(input_name+ "." + extension, "a+")
+    content =""
+    for i in range(connection_num):
+        temp_file_name = input_name + "_" + str(i) + ".txt"
+        if os.path.exists(temp_file_name):
+            with open(temp_file_name, "r") as read_temp:
+                data = read_temp.read()
+                final_file.write(data)
+                final_file.flush()
+            os.remove(temp_file_name)
+    if os.path.exists(header_name):
+        os.remove(header_name)
+    final_file.close()
